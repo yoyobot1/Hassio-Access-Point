@@ -30,6 +30,11 @@ config_list() {
     jq -r --arg k "$1" '.[$k][]? | select(. != null and . != "")' "${OPTIONS_FILE}"
 }
 
+# Read an optional scalar option: empty string when unset or null
+opt() {
+    jq -r --arg k "$1" '.[$k] // empty' "${OPTIONS_FILE}"
+}
+
 flag() {
     if bashio::config.true "$1"; then echo 1; else echo 0; fi
 }
@@ -113,13 +118,15 @@ WPA_PASSPHRASE=$(bashio::config 'wpa_passphrase')
 CHANNEL=$(bashio::config 'channel')
 ADDRESS=$(bashio::config 'address')
 NETMASK=$(bashio::config 'netmask')
-BROADCAST=$(bashio::config 'broadcast' '')
-INTERFACE=$(bashio::config 'interface' 'wlan0')
+BROADCAST=$(opt broadcast)
+INTERFACE=$(opt interface)
+INTERFACE=${INTERFACE:-wlan0}
 HIDE_SSID=$(flag hide_ssid)
 DHCP_START_ADDR=$(bashio::config 'dhcp_start_addr')
 DHCP_END_ADDR=$(bashio::config 'dhcp_end_addr')
-HT_CAPAB=$(bashio::config 'ht_capab' '[HT40][SHORT-GI-20][DSSS_CCK-40]')
-COUNTRY_CODE=$(bashio::config 'country_code' '')
+HT_CAPAB=$(opt ht_capab)
+HT_CAPAB=${HT_CAPAB:-[HT40][SHORT-GI-20][DSSS_CCK-40]}
+COUNTRY_CODE=$(opt country_code)
 
 if [ "${#WPA_PASSPHRASE}" -lt 8 ] || [ "${#WPA_PASSPHRASE}" -gt 63 ]; then
     bashio::exit.nok "The WPA password must be between 8 and 63 characters long!"
