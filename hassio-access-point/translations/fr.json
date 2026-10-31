@@ -6,7 +6,7 @@
 		},
 		"wpa_passphrase": {
 			"name": "Mot de passe WPA2",
-			"description": "Le mot de passe pour votre réseau WiFi. Doit avoir au moins 8 caractères."
+			"description": "Le mot de passe pour votre réseau WiFi. Entre 8 et 63 caractères."
 		},
 		"channel": {
 			"name": "Numéro du canal 2,4GHz",
@@ -22,7 +22,7 @@
 		},
 		"broadcast": {
 			"name": "Adresse de diffusion du sous-réseau",
-			"description": "L'adresse de diffusion du réseau. Doit toujours être la dernière adresse du sous-réseau. Laissez par défaut si vous n'êtes pas sûr."
+			"description": "L'adresse de diffusion du réseau. Laisser vide pour la calculer automatiquement à partir de l'adresse et du masque."
 		},
 		"interface": {
 			"name": "Interface réseau",
@@ -53,8 +53,8 @@
 			"description": "Liste des addresses MAC NON autorisées à se connecter au réseau. Tout les autres appareils seront autorisés."
 		},
 		"debug": {
-			"name": "",
-			"description": ""
+			"name": "Niveau de debug",
+			"description": "0 = sortie minimale, 1 = détails de l'addon, 2 = comme 1 plus le mode debug de hostapd."
 		},
 		"ht_capab": {
 			"name": "HT Capabilities",
@@ -75,6 +75,10 @@
 		"dnsmasq_config_override": {
 			"name": "Configuration personnalisée de DNSMASQ",
 			"description": "Liste d'options à ajouter au fichier `dnsmasq.conf`. Ne pas modifier si vous ne savez pas ce que vous faîtes."
+		},
+		"country_code": {
+			"name": "Code pays",
+			"description": "Code pays ISO à deux lettres (ex. FR, US). Définit le domaine réglementaire WiFi : requis par certains adaptateurs et pour les canaux 12-13. Laisser vide pour garder la valeur par défaut de l'adaptateur."
 		}
 	}
 }

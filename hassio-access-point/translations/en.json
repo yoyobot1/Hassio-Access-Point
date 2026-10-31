@@ -6,7 +6,7 @@
 		},
 		"wpa_passphrase": {
 			"name": "WPA2 Password",
-			"description": "The password for the WiFi network. Must be at least 8 characters long."
+			"description": "The password for the WiFi network. Must be 8 to 63 characters long."
 		},
 		"channel": {
 			"name": "2.4GHz Channel Number",
@@ -22,7 +22,7 @@
 		},
 		"broadcast": {
 			"name": "Subnet Broadcast Address",
-			"description": "The broadcast address of the network. This must always be the last address in the subnet. Leave default if unsure."
+			"description": "The broadcast address of the network. Leave empty to compute it automatically from the address and netmask."
 		},
 		"interface": {
 			"name": "Network Interface",
@@ -53,8 +53,8 @@
 			"description": "A list of the MAC addresses that are NOT allowed to connect to the network. Any other devices will be allowed."
 		},
 		"debug": {
-			"name": "",
-			"description": ""
+			"name": "Debug Level",
+			"description": "0 = basic output, 1 = addon detail, 2 = same as 1 plus hostapd debug mode."
 		},
 		"ht_capab": {
 			"name": "HT Capabilities",
@@ -75,6 +75,10 @@
 		"dnsmasq_config_override": {
 			"name": "DNSMASQ Custom Configuration",
 			"description": "A list of options to append to the `dnsmasq.conf` file. Don't touch if you don't know what you're doing."
+		},
+		"country_code": {
+			"name": "Country Code",
+			"description": "Two-letter ISO country code (e.g. FR, US). Sets the WiFi regulatory domain: required by some adapters and for channels 12-13. Leave empty to keep the adapter default."
 		}
 	}
 }
