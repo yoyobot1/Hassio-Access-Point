@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.7.0]
+
+### Added
+- `ap_isolate` option: clients cannot talk to each other
+- `dhcp_lease_time` option (default `12h`)
+- DHCP leases persisted in `/data/dnsmasq.leases`, `dhcp-authoritative` for fast renewals after a restart
+- `debug: 1` now logs every DHCP exchange (`log-dhcp`)
+- Warning when the interface does not report AP mode support
+- SSID length is checked in bytes (UTF-8 SSIDs could exceed 32 bytes)
+- `dhcp_start_addr` / `dhcp_end_addr` required when DHCP is enabled
+- Docker `HEALTHCHECK` on hostapd
+- `DOCS.md` shown in the addon Documentation tab, troubleshooting section in the README
+- Unit tests for the network helpers, run in CI; Dependabot for GitHub Actions
+
+### Fixed
+- `broadcast`, `country_code`, `interface`, `ht_capab` read as the string `null` when unset (addon failed to start without `broadcast`)
+- Non-contiguous netmasks (e.g. `255.0.255.0`) are rejected
+- Failure to set the address or bring the interface up now stops the addon with a clear error instead of starting a broken AP
+- A NetworkManager error is a warning, no longer silent
+- Generated config (contains the WPA passphrase) is only readable by root
+
+### Changed
+- Network helpers moved to `net-utils.sh`
+
 ## [0.6.0]
 
 ### Added

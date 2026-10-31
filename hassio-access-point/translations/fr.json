@@ -79,6 +79,14 @@
 		"country_code": {
 			"name": "Code pays",
 			"description": "Code pays ISO à deux lettres (ex. FR, US). Définit le domaine réglementaire WiFi : requis par certains adaptateurs et pour les canaux 12-13. Laisser vide pour garder la valeur par défaut de l'adaptateur."
+		},
+		"ap_isolate": {
+			"name": "Isolation des clients",
+			"description": "Empêche les appareils WiFi de communiquer entre eux. Ils peuvent toujours joindre l'hôte et, si activé, internet."
+		},
+		"dhcp_lease_time": {
+			"name": "Durée du bail DHCP",
+			"description": "Durée de validité d'un bail DHCP, ex. 30m, 12h, 2d, 1w ou infinite. Défaut : 12h."
 		}
 	}
 }

@@ -1,18 +1,23 @@
 #!/usr/bin/with-contenv bashio
 # shellcheck shell=bash
 
+# shellcheck source=net-utils.sh
+source /net-utils.sh
+
 readonly OPTIONS_FILE=/data/options.json
 readonly WORKDIR=/tmp/ap
 readonly HOSTAPD_CONF="${WORKDIR}/hostapd.conf"
 readonly HOSTAPD_ALLOW="${WORKDIR}/hostapd.allow"
 readonly HOSTAPD_DENY="${WORKDIR}/hostapd.deny"
 readonly DNSMASQ_CONF="${WORKDIR}/dnsmasq.conf"
+readonly DNSMASQ_LEASES=/data/dnsmasq.leases
 readonly IPT=iptables-nft
 readonly RULE_COMMENT=ap-addon-inet
 
 HOSTAPD_PID=""
 DNSMASQ_PID=""
 CLEANED=0
+INTERFACE=""
 
 DEBUG=$(bashio::config 'debug')
 
@@ -39,43 +44,6 @@ flag() {
     if bashio::config.true "$1"; then echo 1; else echo 0; fi
 }
 
-ip_to_int() {
-    local a b c d
-    IFS=. read -r a b c d <<<"$1"
-    echo $(( (a << 24) | (b << 16) | (c << 8) | d ))
-}
-
-int_to_ip() {
-    local n=$1
-    echo "$(( (n >> 24) & 255 )).$(( (n >> 16) & 255 )).$(( (n >> 8) & 255 )).$(( n & 255 ))"
-}
-
-# 255.255.255.0 -> 24. Returns 1 on invalid mask.
-netmask_to_prefix() {
-    local octet prefix=0
-    local IFS=.
-    for octet in $1; do
-        case "${octet}" in
-            255) prefix=$((prefix + 8)) ;;
-            254) prefix=$((prefix + 7)) ;;
-            252) prefix=$((prefix + 6)) ;;
-            248) prefix=$((prefix + 5)) ;;
-            240) prefix=$((prefix + 4)) ;;
-            224) prefix=$((prefix + 3)) ;;
-            192) prefix=$((prefix + 2)) ;;
-            128) prefix=$((prefix + 1)) ;;
-            0) ;;
-            *) return 1 ;;
-        esac
-    done
-    echo "${prefix}"
-}
-
-join_by_comma() {
-    local IFS=,
-    echo "$*"
-}
-
 # Remove every iptables rule created by this addon (idempotent)
 flush_ap_rules() {
     local rule
@@ -99,8 +67,10 @@ cleanup() {
     [ -n "${DNSMASQ_PID}" ] && kill "${DNSMASQ_PID}" 2>/dev/null
     wait 2>/dev/null
     flush_ap_rules
-    ip addr flush dev "${INTERFACE}" 2>/dev/null
-    ip link set "${INTERFACE}" down 2>/dev/null
+    if [ -n "${INTERFACE}" ]; then
+        ip addr flush dev "${INTERFACE}" 2>/dev/null
+        ip link set "${INTERFACE}" down 2>/dev/null
+    fi
 }
 
 trap 'cleanup; exit 0' SIGTERM SIGINT
@@ -112,6 +82,13 @@ trap 'cleanup; exit 0' SIGTERM SIGINT
 for required_var in ssid wpa_passphrase channel address netmask; do
     bashio::config.require "${required_var}" "An AP cannot be created without this information"
 done
+
+DHCP_ENABLED=false
+if bashio::config.true 'dhcp'; then
+    DHCP_ENABLED=true
+    bashio::config.require 'dhcp_start_addr' "DHCP needs a start address"
+    bashio::config.require 'dhcp_end_addr' "DHCP needs an end address"
+fi
 
 SSID=$(bashio::config 'ssid')
 WPA_PASSPHRASE=$(bashio::config 'wpa_passphrase')
@@ -127,6 +104,15 @@ DHCP_END_ADDR=$(bashio::config 'dhcp_end_addr')
 HT_CAPAB=$(opt ht_capab)
 HT_CAPAB=${HT_CAPAB:-[HT40][SHORT-GI-20][DSSS_CCK-40]}
 COUNTRY_CODE=$(opt country_code)
+DHCP_LEASE_TIME=$(opt dhcp_lease_time)
+DHCP_LEASE_TIME=${DHCP_LEASE_TIME:-12h}
+AP_ISOLATE=$(flag ap_isolate)
+
+# SSID is limited to 32 bytes, not 32 characters (UTF-8 multi-byte chars)
+SSID_BYTES=$(LC_ALL=C; echo "${#SSID}")
+if [ "${SSID_BYTES}" -gt 32 ]; then
+    bashio::exit.nok "The SSID is ${SSID_BYTES} bytes long, the maximum is 32 bytes"
+fi
 
 if [ "${#WPA_PASSPHRASE}" -lt 8 ] || [ "${#WPA_PASSPHRASE}" -gt 63 ]; then
     bashio::exit.nok "The WPA password must be between 8 and 63 characters long!"
@@ -139,7 +125,7 @@ fi
 ADDRESS_INT=$(ip_to_int "${ADDRESS}")
 MASK_INT=$(ip_to_int "${NETMASK}")
 NETWORK_INT=$(( ADDRESS_INT & MASK_INT ))
-COMPUTED_BROADCAST=$(int_to_ip $(( NETWORK_INT | (~MASK_INT & 0xFFFFFFFF) )))
+COMPUTED_BROADCAST=$(broadcast_of "${ADDRESS}" "${NETMASK}")
 
 if [ -z "${BROADCAST}" ]; then
     BROADCAST=${COMPUTED_BROADCAST}
@@ -147,7 +133,7 @@ elif [ "${BROADCAST}" != "${COMPUTED_BROADCAST}" ]; then
     bashio::log.warning "Configured broadcast ${BROADCAST} differs from computed ${COMPUTED_BROADCAST} for ${ADDRESS}/${PREFIX}"
 fi
 
-if bashio::config.true 'dhcp'; then
+if ${DHCP_ENABLED}; then
     START_INT=$(ip_to_int "${DHCP_START_ADDR}")
     END_INT=$(ip_to_int "${DHCP_END_ADDR}")
     if [ "$(( START_INT & MASK_INT ))" -ne "${NETWORK_INT}" ] || [ "$(( END_INT & MASK_INT ))" -ne "${NETWORK_INT}" ]; then
@@ -167,6 +153,11 @@ if ! ip link show "${INTERFACE}" >/dev/null 2>&1; then
     bashio::exit.nok "Set the 'interface' option to one of the above"
 fi
 
+PHY=$(iw dev "${INTERFACE}" info 2>/dev/null | awk '/wiphy/ { print "phy" $2 }')
+if [ -n "${PHY}" ] && ! iw phy "${PHY}" info 2>/dev/null | grep -qE '^[[:space:]]+\* AP$'; then
+    bashio::log.warning "${INTERFACE} (${PHY}) does not report AP mode support, hostapd will probably fail"
+fi
+
 echo "Starting Hass.io Access Point Addon"
 
 ###############################################################################
@@ -174,16 +165,21 @@ echo "Starting Hass.io Access Point Addon"
 ###############################################################################
 
 log 1 "# Setup interface ${INTERFACE}: ${ADDRESS}/${PREFIX} broadcast ${BROADCAST}"
-nmcli dev set "${INTERFACE}" managed no
+if ! nmcli dev set "${INTERFACE}" managed no; then
+    bashio::log.warning "Could not tell NetworkManager to release ${INTERFACE}, continuing anyway"
+fi
 ip link set "${INTERFACE}" down
 ip addr flush dev "${INTERFACE}"
-ip addr add "${ADDRESS}/${PREFIX}" broadcast "${BROADCAST}" dev "${INTERFACE}"
-ip link set "${INTERFACE}" up
+ip addr add "${ADDRESS}/${PREFIX}" broadcast "${BROADCAST}" dev "${INTERFACE}" \
+    || bashio::exit.nok "Could not set ${ADDRESS}/${PREFIX} on ${INTERFACE}"
+ip link set "${INTERFACE}" up \
+    || bashio::exit.nok "Could not bring ${INTERFACE} up"
 
 ###############################################################################
 # hostapd.conf (regenerated on every start from the static base)
 ###############################################################################
 
+umask 077
 mkdir -p "${WORKDIR}"
 cp /hostapd.conf "${HOSTAPD_CONF}"
 cp /dnsmasq.conf "${DNSMASQ_CONF}"
@@ -199,6 +195,11 @@ cp /dnsmasq.conf "${DNSMASQ_CONF}"
 } >>"${HOSTAPD_CONF}"
 
 log 1 "# Setup hostapd: ssid=${SSID} wpa_passphrase=******** channel=${CHANNEL} ignore_broadcast_ssid=${HIDE_SSID} ht_capab=${HT_CAPAB}"
+
+if [ "${AP_ISOLATE}" -eq 1 ]; then
+    echo "ap_isolate=1" >>"${HOSTAPD_CONF}"
+    log 1 "Add to hostapd.conf: ap_isolate=1"
+fi
 
 if [ -n "${COUNTRY_CODE}" ]; then
     printf 'country_code=%s\nieee80211d=1\n' "${COUNTRY_CODE}" >>"${HOSTAPD_CONF}"
@@ -238,12 +239,18 @@ fi
 # dnsmasq.conf
 ###############################################################################
 
-if bashio::config.true 'dhcp'; then
-    log 1 "# DHCP enabled. Setup dnsmasq: dhcp-range=${DHCP_START_ADDR},${DHCP_END_ADDR},12h"
+if ${DHCP_ENABLED}; then
+    log 1 "# DHCP enabled. Setup dnsmasq: dhcp-range=${DHCP_START_ADDR},${DHCP_END_ADDR},${DHCP_LEASE_TIME}"
     {
-        echo "dhcp-range=${DHCP_START_ADDR},${DHCP_END_ADDR},12h"
+        echo "dhcp-range=${DHCP_START_ADDR},${DHCP_END_ADDR},${DHCP_LEASE_TIME}"
         echo "interface=${INTERFACE}"
+        # Persist leases across restarts so clients keep their IP
+        echo "dhcp-leasefile=${DNSMASQ_LEASES}"
     } >>"${DNSMASQ_CONF}"
+    # Log every DHCP exchange when debug >= 1
+    if [ "${DEBUG}" -ge 1 ]; then
+        echo "log-dhcp" >>"${DNSMASQ_CONF}"
+    fi
 
     mapfile -t DNS_SERVERS < <(config_list client_dns_override)
     if [ "${#DNS_SERVERS[@]}" -eq 0 ]; then
@@ -295,7 +302,7 @@ fi
 # Start daemons
 ###############################################################################
 
-if bashio::config.true 'dhcp'; then
+if ${DHCP_ENABLED}; then
     log 1 "## Starting dnsmasq daemon"
     dnsmasq -k -C "${DNSMASQ_CONF}" &
     DNSMASQ_PID=$!

@@ -79,6 +79,14 @@
 		"country_code": {
 			"name": "Country Code",
 			"description": "Two-letter ISO country code (e.g. FR, US). Sets the WiFi regulatory domain: required by some adapters and for channels 12-13. Leave empty to keep the adapter default."
+		},
+		"ap_isolate": {
+			"name": "Client Isolation",
+			"description": "Prevent WiFi clients from talking to each other. They can still reach the host and, if enabled, the internet."
+		},
+		"dhcp_lease_time": {
+			"name": "DHCP Lease Time",
+			"description": "How long a DHCP lease is valid, e.g. 30m, 12h, 2d, 1w or infinite. Defaults to 12h."
 		}
 	}
 }

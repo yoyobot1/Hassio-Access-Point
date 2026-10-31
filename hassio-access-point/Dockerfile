@@ -12,8 +12,11 @@ RUN apk add --no-cache \
         dnsmasq \
         iptables
 
-COPY hostapd.conf dnsmasq.conf /
+COPY hostapd.conf dnsmasq.conf net-utils.sh /
 COPY run.sh /
 RUN chmod a+x /run.sh
+
+HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
+    CMD pidof hostapd > /dev/null || exit 1
 
 CMD [ "/run.sh" ]
