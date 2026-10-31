@@ -10,7 +10,7 @@
 		},
 		"channel": {
 			"name": "2.4GHz Channel Number",
-			"description": "The channel to broadcast on. If unsure; either 1, 6 or 11 is recommended."
+			"description": "The WiFi channel: 1-14 in 2.4GHz, 36-165 in 5GHz (36, 40, 44, 48 recommended)."
 		},
 		"address": {
 			"name": "Host IP Address",
@@ -87,6 +87,10 @@
 		"dhcp_lease_time": {
 			"name": "DHCP Lease Time",
 			"description": "How long a DHCP lease is valid, e.g. 30m, 12h, 2d, 1w or infinite. Defaults to 12h."
+		},
+		"band": {
+			"name": "Band",
+			"description": "2.4GHz (default) or 5GHz. With 5GHz, set a 5 GHz channel (36, 40, 44, 48...). Devices that only support 2.4 GHz will not see the network."
 		}
 	}
 }

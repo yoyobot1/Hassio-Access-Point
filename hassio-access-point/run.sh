@@ -101,12 +101,35 @@ INTERFACE=${INTERFACE:-wlan0}
 HIDE_SSID=$(flag hide_ssid)
 DHCP_START_ADDR=$(bashio::config 'dhcp_start_addr')
 DHCP_END_ADDR=$(bashio::config 'dhcp_end_addr')
+BAND=$(opt band)
+BAND=${BAND:-2.4GHz}
 HT_CAPAB=$(opt ht_capab)
-HT_CAPAB=${HT_CAPAB:-[HT40][SHORT-GI-20][DSSS_CCK-40]}
 COUNTRY_CODE=$(opt country_code)
 DHCP_LEASE_TIME=$(opt dhcp_lease_time)
 DHCP_LEASE_TIME=${DHCP_LEASE_TIME:-12h}
 AP_ISOLATE=$(flag ap_isolate)
+
+# Band and channel
+if [ "${BAND}" = "5GHz" ]; then
+    if ! is_5ghz_channel "${CHANNEL}"; then
+        bashio::exit.nok "Channel ${CHANNEL} does not exist in 5 GHz. Use 36, 40, 44, 48 (or 149, 153, 157, 161)"
+    fi
+    if is_dfs_channel "${CHANNEL}"; then
+        bashio::log.warning "Channel ${CHANNEL} is a DFS channel, many drivers cannot start an AP on it. Prefer 36, 40, 44 or 48"
+    fi
+    if [ -z "${HT_CAPAB}" ]; then
+        if HT40_DIR=$(ht40_direction "${CHANNEL}"); then
+            HT_CAPAB="[HT40${HT40_DIR}][SHORT-GI-20][SHORT-GI-40]"
+        else
+            HT_CAPAB="[SHORT-GI-20]"
+        fi
+    fi
+else
+    if [ "${CHANNEL}" -lt 1 ] || [ "${CHANNEL}" -gt 14 ]; then
+        bashio::exit.nok "Channel ${CHANNEL} does not exist in 2.4 GHz (1-14). Set 'band' to 5GHz to use channels 36 and above"
+    fi
+    HT_CAPAB=${HT_CAPAB:-[HT40][SHORT-GI-20][DSSS_CCK-40]}
+fi
 
 # SSID is limited to 32 bytes, not 32 characters (UTF-8 multi-byte chars)
 SSID_BYTES=$(LC_ALL=C; echo "${#SSID}")
@@ -191,10 +214,25 @@ cp /dnsmasq.conf "${DNSMASQ_CONF}"
     echo "wpa_passphrase=${WPA_PASSPHRASE}"
     echo "channel=${CHANNEL}"
     echo "ignore_broadcast_ssid=${HIDE_SSID}"
+    echo "ieee80211n=1"
     echo "ht_capab=${HT_CAPAB}"
+    if [ "${BAND}" = "5GHz" ]; then
+        echo "hw_mode=a"
+        echo "ieee80211ac=1"
+        # 80 MHz only when 40 MHz is allowed and the channel is in an 80 MHz block
+        if [[ "${HT_CAPAB}" == *"[HT40"* ]] && VHT_CENTER=$(vht80_center "${CHANNEL}"); then
+            echo "vht_oper_chwidth=1"
+            echo "vht_oper_centr_freq_seg0_idx=${VHT_CENTER}"
+            echo "vht_capab=[SHORT-GI-80]"
+        else
+            echo "vht_oper_chwidth=0"
+        fi
+    else
+        echo "hw_mode=g"
+    fi
 } >>"${HOSTAPD_CONF}"
 
-log 1 "# Setup hostapd: ssid=${SSID} wpa_passphrase=******** channel=${CHANNEL} ignore_broadcast_ssid=${HIDE_SSID} ht_capab=${HT_CAPAB}"
+log 1 "# Setup hostapd: band=${BAND} ssid=${SSID} wpa_passphrase=******** channel=${CHANNEL} ignore_broadcast_ssid=${HIDE_SSID} ht_capab=${HT_CAPAB}"
 
 if [ "${AP_ISOLATE}" -eq 1 ]; then
     echo "ap_isolate=1" >>"${HOSTAPD_CONF}"

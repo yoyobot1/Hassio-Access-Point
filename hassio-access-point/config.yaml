@@ -1,6 +1,6 @@
 ---
 name: Hass.io Access Point
-version: 0.7.0
+version: 0.8.0
 slug: hassio-access-point
 description: Create a WiFi access point to directly connect devices to Home Assistant
 arch: [armhf, armv7, aarch64, amd64, i386]
@@ -26,6 +26,7 @@ options:
   dhcp_end_addr: 192.168.99.20
   allow_mac_addresses: []
   deny_mac_addresses: []
+  band: 2.4GHz
   ap_isolate: false
   dhcp_lease_time: 12h
   debug: 0
@@ -36,7 +37,7 @@ options:
 schema:
   ssid: match(^.{2,32}$)
   wpa_passphrase: password
-  channel: int(1,13)
+  channel: int(1,165)
   address: match(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$)
   netmask: match(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$)
   broadcast: match(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$)?
@@ -49,6 +50,7 @@ schema:
     - match(^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$)?
   deny_mac_addresses:
     - match(^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$)?
+  band: list(2.4GHz|5GHz)?
   country_code: match(^[A-Z]{2}$)?
   ap_isolate: bool?
   dhcp_lease_time: match(^([0-9]+[mhdw]?|infinite)$)?

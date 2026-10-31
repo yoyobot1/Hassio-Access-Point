@@ -10,7 +10,7 @@
 		},
 		"channel": {
 			"name": "Numéro du canal 2,4GHz",
-			"description": "Le canal sur lequel diffuser. Si vous n'êtes pas sûr, les canaux 1, 6 ou 11 sont recommandés."
+			"description": "Le canal WiFi : 1-14 en 2,4 GHz, 36-165 en 5 GHz (36, 40, 44, 48 conseillés)."
 		},
 		"address": {
 			"name": "Adresse IP de l'hôte",
@@ -87,6 +87,10 @@
 		"dhcp_lease_time": {
 			"name": "Durée du bail DHCP",
 			"description": "Durée de validité d'un bail DHCP, ex. 30m, 12h, 2d, 1w ou infinite. Défaut : 12h."
+		},
+		"band": {
+			"name": "Bande",
+			"description": "2.4GHz (défaut) ou 5GHz. En 5GHz, choisir un canal 5 GHz (36, 40, 44, 48...). Les appareils 2,4 GHz uniquement ne verront pas le réseau."
 		}
 	}
 }

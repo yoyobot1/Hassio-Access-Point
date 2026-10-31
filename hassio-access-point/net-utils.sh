@@ -55,3 +55,43 @@ broadcast_of() {
     mask_int=$(ip_to_int "$2")
     int_to_ip $(( ($(ip_to_int "$1") & mask_int) | (~mask_int & 0xFFFFFFFF) ))
 }
+
+# 5 GHz helpers -------------------------------------------------------------
+
+# Valid 5 GHz primary channels (20 MHz)
+is_5ghz_channel() {
+    case "$1" in
+        36|40|44|48|52|56|60|64|100|104|108|112|116|120|124|128|132|136|140|144|149|153|157|161|165) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# DFS channels need radar detection, which many drivers lack in AP mode
+is_dfs_channel() {
+    [ "$1" -ge 52 ] && [ "$1" -le 144 ]
+}
+
+# HT40 secondary channel direction (+ or -) for a 5 GHz primary channel.
+# Returns 1 when the channel has no 40 MHz pair (165).
+ht40_direction() {
+    case "$1" in
+        36|44|52|60|100|108|116|124|132|140|149|157) echo "+" ;;
+        40|48|56|64|104|112|120|128|136|144|153|161) echo "-" ;;
+        *) return 1 ;;
+    esac
+}
+
+# VHT 80 MHz centre channel index for a 5 GHz primary channel.
+# Returns 1 when the channel is not part of an 80 MHz block (165).
+vht80_center() {
+    case "$1" in
+        36|40|44|48) echo 42 ;;
+        52|56|60|64) echo 58 ;;
+        100|104|108|112) echo 106 ;;
+        116|120|124|128) echo 122 ;;
+        132|136|140|144) echo 138 ;;
+        149|153|157|161) echo 155 ;;
+        *) return 1 ;;
+    esac
+}
+
