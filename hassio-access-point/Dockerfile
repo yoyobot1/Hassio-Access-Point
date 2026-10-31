@@ -5,21 +5,14 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV LANG=C.UTF-8
 
-RUN apk update && \
-    apk add --no-cache \
+RUN apk add --no-cache \
         iw \
         hostapd \
-        networkmanager \
         networkmanager-cli \
-        net-tools \
-        sudo \
         dnsmasq \
-        iptables && \
-    rm -rf /var/cache/apk/*
+        iptables
 
-COPY hostapd.conf /
-COPY dnsmasq.conf /
-
+COPY hostapd.conf dnsmasq.conf /
 COPY run.sh /
 RUN chmod a+x /run.sh
 

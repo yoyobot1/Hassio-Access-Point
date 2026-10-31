@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.0]
+
+### Added
+- `country_code` option (regulatory domain, `ieee80211d`)
+- `broadcast` is now optional and computed from `address` + `netmask`
+- Startup validation: WPA passphrase 8-63 chars, valid netmask, DHCP range inside the subnet and ordered, interface exists (lists available wireless interfaces otherwise)
+- GitHub Actions lint: shellcheck, hadolint, addon-linter
+
+### Fixed
+- `hostapd.conf`, `dnsmasq.conf` and ACL files are regenerated in `/tmp/ap` on every start (no more appended duplicates)
+- `channel=` was written with a literal `\n`
+- MAC address schema accepted only 5 octets and was not anchored; now requires 6 octets
+- Override lists (`hostapd_config_override`, `dnsmasq_config_override`, DNS, MAC) are no longer word-split or glob-expanded
+- Stop now kills hostapd/dnsmasq, removes the NAT/FORWARD rules and releases the interface (previous handler called `ifdown`, absent from the image)
+- NAT rules are always flushed on start, even if the default route interface changed
+- Addon exits with an error if hostapd or dnsmasq dies, instead of running without DHCP
+- Dead config-migration loop removed (options are validated as `bool` by the Supervisor)
+
+### Changed
+- Interface configured with `ip` instead of `ifconfig`; `/etc/network/interfaces` no longer touched
+- dnsmasq runs in foreground (`-k`) under run.sh supervision
+- Smaller image: removed `networkmanager`, `net-tools`, `sudo`
+- README example is valid YAML with real types
+
 ## [0.5.4] - 2025-11-03
 
 ### Added
